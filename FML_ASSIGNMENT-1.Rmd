@@ -1,0 +1,80 @@
+---
+title: "Assignment_1"
+author: "Abhinav"
+date: "2024-02-05"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Dataset taken from
+
+https://www.kaggle.com/datasets
+
+```{r} 
+library(readxl)
+df1 <- read.csv("D:/SUBJECTS/FML/Assignment-1/BankChurners.csv")
+View(df1)
+```
+
+#printing the descriptive Statistics
+```{r}
+summary(df1)
+```
+#Printing the Quantitative Varaibles
+```{r}
+mean(df1$Total_Relationship_Count
+)
+```
+```{r}
+median(df1$Contacts_Count_12_mon
+)
+```
+
+```{r}
+summary(df1$Avg_Open_To_Buy
+)
+```
+# Printing the Qualitative Variables
+```{r}
+summary(df1$Gender)
+```
+```{r}
+summary(df1$Card_Category) 
+```
+
+# Transformation of INPUT Months on book and printing it's value 
+```{r}
+# Assuming df1 is your data frame
+df1$Months_on_book <- sqrt(df1$Months_on_book)
+
+# Print the first few rows to see the changes
+head(df1)
+
+```
+
+```{r}
+hist(df1$Customer_Age,xlab ="Customer_Age",ylab ="Credit_Limit
+",main ="Histogram of Age",col ="purple")
+
+```
+
+
+
+```{r}
+# Assuming df1 is your data frame
+plot(df1$Dependent_count, df1$Total_Relationship_Count,main = "Scatterplot of Customer Age vs. Credit Limit",xlab = "Dependent_count",ylab = "Total_Relationship_Count",col = "blue")  # Optional: Set the color of the points
+
+```
+```{r}
+# Assuming df1 is your data frame
+barplot(table(df1$Gender),
+        main = "Barplot of Attrition_Flag",
+        xlab = "Gender",
+        ylab = "Frequency",
+        col = "lightblue")  # Optional: Set the color of the bars
+
+```
