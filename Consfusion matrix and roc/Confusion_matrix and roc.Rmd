@@ -1,0 +1,82 @@
+---
+title: "Confusion Matrix and ROC"
+author: "Abhinav"
+date: "2024-02-21"
+output: html_document
+---
+#Assignment on Confusion Matrix and ROC using CARET package and pROC package
+
+```{r}
+library(ISLR)
+library(caret)
+summary(Default)
+norm_model <- preProcess(Default, method = c("range"))
+Default_normalized <- predict(norm_model, Default)
+summary(Default_normalized)
+```
+```{r}
+set.seed(123)
+Search_grid <- expand.grid( k= c(2:20))
+model <- train(default ~ balance + income, data= Default_normalized, method = "knn", tuneGrid=Search_grid)
+
+model
+```
+
+```{r}
+library(class)
+library(caret)
+library(ISLR)
+summary(Default)
+```
+
+```{r}
+Default_normalized <- Default_normalized[,-2]
+```
+
+
+```{r}
+Index_Train <- createDataPartition(Default_normalized$default, p = 0.8 , list=FALSE)
+Train <- Default_normalized[Index_Train,]
+Test <- Default_normalized[-Index_Train,]
+dim(Train)
+dim(Test)
+```
+```{r}
+Train_Predictors <- Train[,2:3]
+Test_Predictors <- Test[,2:3]
+```
+
+```{r}
+Train_labels <- Train[,1]
+Test_labels <- Test[,1]
+```
+
+```{r}
+Predicted_Test_labels <- knn(Train_Predictors,Test_Predictors, cl=Train_labels, k=50)
+head(Predicted_Test_labels)
+```
+
+#Creating a confusion matrix
+```{r}
+CMatrix <- confusionMatrix(data= Predicted_Test_labels, reference = Test_labels)
+CMatrix
+```
+#Generating an ROC curve
+```{r}
+#installing the package
+#install.packages("pROC")
+library(pROC)
+```
+# Calculate ROC curve
+```{r}
+roc_data <- roc(Test_labels,as.numeric( Predicted_Test_labels))
+
+```
+#Plotting ROC curve
+```{r}
+
+plot(roc_data, main = "ROC Curve", col="blue", lwd =2 ,print.auc = TRUE)
+```
+
+
+

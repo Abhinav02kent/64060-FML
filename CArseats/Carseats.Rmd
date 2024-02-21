@@ -1,0 +1,61 @@
+---
+title: "Carseats"
+author: "Abhinav"
+date: "2024-02-17"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+
+library(ISLR)
+library(caret)
+
+# Load Carseats dataset
+data("Carseats")
+
+# View the dataset and get summary statistics
+View(Carseats)
+summary(Carseats)
+
+# Establish a seed for reproducibility
+set.seed(123)
+
+# Determine the total number of rows in the dataset.
+total_rows <- nrow(Carseats)
+
+# Determine the quantity of rows in the training, validation, and test sets.
+num_training <- round(0.6 * total_rows)
+num_validation <- round(0.2 * total_rows)
+num_Test <- total_rows - num_training - num_validation
+
+# Use the same seed to ensure reproducibility and shuffle the dataset at random.
+shuffled_indices <- sample(seq_len(total_rows))
+
+# Create a training set using 60% of the data.
+Trng <- Carseats[shuffled_indices[1:num_training], ]
+
+# Produce a validation set using 20% of the data.
+Validation <- Carseats[shuffled_indices[(num_training + 1):(num_training + num_validation)], ]
+
+# Generate a test set (20% of the data).
+Test <- Carseats[shuffled_indices[(num_training + num_validation + 1):total_rows], ]
+
+# Verify if there are duplicates.
+if (any(duplicated(Trng) | duplicated(Validation) | duplicated(Test))) {
+  stop("Duplicate records found!")
+}
+
+# Check the dimensions of the datasets
+dim(Trng)
+dim(Validation)
+dim(Test)
+
+```
