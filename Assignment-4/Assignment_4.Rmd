@@ -1,0 +1,206 @@
+---
+title: "Assignment_4"
+author: "Abhinav"
+date: "2024-03-17"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#Summary
+In the context of Assignment 4 in the Machine Learning course, the focus is on conducting clustering analysis using the pharmaceuticals dataset. This dataset offers insights into 21 pharmaceutical firms, outlining 9 key performance indicators encompassing market capitalization, return on assets (ROA), return on equity (ROE), among others.
+
+The initial step of the analysis entails utilizing the 9 numeric columns of data for clustering purposes, employing the K-means clustering algorithm. To ensure uniform contribution of variables, the algorithm preprocesses the data, scaling it appropriately. This involves calculating pairwise distances between observations to discern patterns and similarities.
+
+To ascertain the optimal number of clusters, the `fviz_nbclust` function, integrated with the silhouette method, proves invaluable. This method computes silhouette scores across varying cluster numbers, facilitating the identification of the number of clusters that maximizes inter-cluster separation while minimizing overlap. After rigorous analysis, it was determined that the ideal number of clusters is 5.
+
+Further analysis was conducted with K value set to 7. However, upon comparing within-cluster sum of square (WCSS) values, it was observed that the value significantly reduced when K was 5, signifying better-defined clusters. Hence, the decision was made to stick with 5 clusters rather than 7.
+
+Given the application of the K-means algorithm, which treats all variables equally, the resulting "centers" represent mean values for each variable within the clusters. These means collectively define the centroids of the clusters, aiding in interpreting the clusters' characteristics.
+
+Moving on to the second question, intriguing patterns emerged when examining the non-numeric variables in relation to the numeric variable-based clusters. Clusters 1 and 3 exhibited characteristics of moderation, evident in various aspects:
+
+- They demonstrated moderate growth, with Cluster 1 displaying high valuation/profitability but lower growth, and Cluster 3 showing high PE but lower profitability.
+- Recommendations within these clusters tended to be more conservative, leaning towards hold or moderate buy rather than strong buy or sell.
+- Additionally, these clusters predominantly comprised firms listed on major exchanges like NYSE and were situated in mature markets such as the US and UK.
+
+Conversely, Clusters 4 and 5 showcased traits of extremity:
+
+- Cluster 4 displayed high growth coupled with high risk, as indicated by high leverage, low PE ratios, and moderate sell recommendations.
+- On the other hand, Cluster 5 encompassed distressed stocks characterized by low growth, heightened volatility (beta), and significant leverage.
+
+This comprehensive analysis illuminates distinct patterns within the clusters, offering valuable insights into the diverse characteristics and behaviors of pharmaceutical firms across different segments of the market.
+
+```{r}
+library(flexclust)
+library(cluster)
+library(tidyverse)
+```
+
+```{r}
+library(factoextra)
+library(FactoMineR)
+library(ggcorrplot)
+```
+
+```{r}
+
+
+Pharmaceuticals <- read.csv("D:/SUBJECTS/FML/Assignment-4/Pharmaceuticals.csv")
+```
+
+```{r}
+summary(Pharmaceuticals)  #Provides a summary for the pharmaceuticals data.
+head(Pharmaceuticals)     #Gives an insight on how the data looks like.
+```
+
+```{r}
+Pharmaceuticals_1 <- Pharmaceuticals[3:11] #Selecting only the numerical variables 1 to 9
+head(Pharmaceuticals_1)
+summary(Pharmaceuticals_1)
+```
+
+#Next we proceed onto normalizing the data.
+
+```{r}
+Pharmaceuticals_2 <- scale(Pharmaceuticals_1)
+row.names(Pharmaceuticals_2) <- Pharmaceuticals[,1]
+distance <- get_dist(Pharmaceuticals_2)
+Co_relation <- cor(Pharmaceuticals_2)
+fviz_nbclust(Pharmaceuticals_2,kmeans,method = "silhouette")
+```
+
+```{r}
+set.seed(69)
+K5 <- kmeans(Pharmaceuticals_2,centers = 5,nstart = 25) #k=5 and number of restarts are 25
+print(K5)
+K5$centers
+K5$size
+```
+
+```{r}
+K7 <- kmeans(Pharmaceuticals_2,centers = 7,nstart = 25) #k=7 and number of restarts are 25
+print(K7)
+K7$centers
+K7$size
+```
+
+#Forming the clusters based on the value K=5.
+```{r}
+fviz_cluster(K5, data = Pharmaceuticals_2)
+```
+
+#Forming the clusters based on the value K=7
+```{r}
+fviz_cluster(K7, data = Pharmaceuticals_2)
+```
+
+#Finding the optimal number of clusters using the elbow method.
+```{r}
+fviz_nbclust(Pharmaceuticals_2,kmeans,method = "wss")
+```
+
+#Finding the optimal number of clusters using the silhouette method.
+```{r}
+fviz_nbclust(Pharmaceuticals_2,kmeans,method = "silhouette")
+```
+
+#Euclidean
+```{r}
+distance<- dist(Pharmaceuticals_2, method = "euclidean")
+fviz_dist(distance)
+
+```
+
+#Manhattan
+```{r}
+set.seed(69)
+
+k5.1 = kcca(Pharmaceuticals_2, k=5, kccaFamily("kmedians"))
+k5.1
+```
+
+```{r}
+Clusters_Index <- predict(k5.1)
+dist(k5.1@centers)
+
+image(k5.1)
+points(Pharmaceuticals_2, col=Clusters_Index, pch=19, cex=0.3)
+```
+
+#Question2 
+Interpret the clusters with respect to the numerical variables used in forming the clusters. 
+
+```{r}
+#Cluster 1 consists of stocks with high market valuation, profitability (ROE, ROA) and low leverage.
+#Cluster 2 consists of stocks with moderate market valuation, profitability and leverage.
+#Cluster 3 consists of stocks with high PE Ratio, lowest Asset Turnover and moderate leverage.
+#Cluster 4 consists of stocks with lowest PE Ratio, highest Rev Growth, moderate ROE, ROA and high leverage.
+#Cluster 5 consists of stocks with lowest Rev Growth, highest Beta and leverage
+```
+
+#Is there a pattern in the clusters with respect to the numerical variables (10 to 12)? (those not used in forming the clusters)
+```{r}
+Pharmaceuticals_1 %>% mutate(Cluster = K5$cluster) %>% group_by(Cluster) %>%
+summarise_all("mean")
+
+clusplot(Pharmaceuticals_2,K5$cluster,main="Clusters",color = TRUE,labels = 3, lines = 0)
+```
+
+#For the non-numeric value **median recommendation**
+```{r}
+Pharmaceuticals_3 <- Pharmaceuticals[12:14] %>% mutate(Clusters=K5$cluster)
+ggplot(Pharmaceuticals_3, mapping = aes(factor(Clusters), fill 
+=Median_Recommendation))+geom_bar(position='dodge')+labs(x ='Clusters')
+
+```
+
+#For the non  numeric value **location**
+```{r}
+ggplot(Pharmaceuticals_3, mapping = aes(factor(Clusters),fill =
+Location))+geom_bar(position = 'dodge')+labs(x ='Clusters')
+```
+
+#For the non numeric value **Exchange**
+```{r}
+ggplot(Pharmaceuticals_3, mapping = aes(factor(Clusters),fill =
+Exchange))+geom_bar(position = 'dodge')+labs(x ='Clusters')
+```
+
+
+#Upon scrutinizing the graphs, distinct observations emerge regarding the characteristics of each cluster:
+
+-Cluster 1:This cluster predominantly receives hold and moderate buy recommendations. These companies are primarily located in the UK and the US and are listed on the NYSE.
+
+- Cluster 2:Companies within this cluster receive a diverse range of recommendations, including hold, moderate buy, moderate sell, and strong buy. They are situated in the UK, the US, and Switzerland, and are listed on the NYSE.
+
+- Cluster 3:Similar to Cluster 1, this cluster also receives hold and moderate buy recommendations. These firms are listed on the NYSE and have a presence in Canada and the US.
+
+- Cluster 4: Within this cluster, companies typically receive moderate sell and moderate buy recommendations. They are listed on the NYSE and have operations in France, Ireland, and the US.
+
+- Cluster 5Companies in this cluster receive hold and moderate buy recommendations. Notably, they are listed on all three stock exchanges and have a presence in Germany and the US.
+
+This refined description sheds light on the diverse characteristics and recommendation patterns observed within each cluster, providing valuable insights into the distribution and behavior of pharmaceutical firms across different regions and stock exchanges.
+
+#Provide an appropriate name for each cluster using any or all of the variables in the dataset.
+
+Certainly, here's a refined phrasing of the descriptions for each cluster:
+
+-Cluster 1: Characterized as Stable Large Caps, this cluster comprises firms with significant market valuation and profitability, coupled with low leverage. These companies exhibit stability and dominance within the market.
+
+-Cluster 2: Representing Moderate Growth entities, this cluster encompasses firms with moderate valuation, profitability, and leverage. They demonstrate steady growth prospects without excessive risk.
+
+-Cluster 3: Identified as High PE Value Traps, this cluster includes firms with high PE ratios, low asset turnover, and moderate leverage. Despite seemingly attractive PE ratios, these companies may pose risks due to their operational inefficiencies.
+
+-Cluster 4: Labeled as High Growth, High Risk entities, this cluster comprises firms with notable revenue growth alongside moderate ROE/ROA. Despite promising growth prospects, these companies entail elevated risk levels, necessitating cautious consideration.
+
+-Cluster 5: Characterized as Distressed Cyclical Stocks, this cluster consists of firms exhibiting the lowest revenue growth. These companies may face challenges or downturns within their respective sectors, indicating potential distress or cyclicality in their performance.
+
+This refined description provides clearer insights into the distinct characteristics and risk profiles associated with each cluster, aiding in informed decision-making and strategy formulation within the pharmaceutical industry.
+
+
