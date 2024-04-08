@@ -1,0 +1,220 @@
+---
+title: "Assignment_5"
+author: "Abhinav"
+date: "2024-04-07"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+#Loading the required libraries as they are pre-installed
+library(stats)
+library(cluster)
+library(factoextra)
+library(dendextend)
+library(caret)
+
+```
+
+```{r}
+df <- read.csv("Cereals.csv")
+df_2 <- na.omit(df) #Remove NA(missing) values
+df<- data.frame(df[,4:16])
+head(df)
+```
+
+#Scaling the data to normalize
+```{r}
+df_normalized <- scale(df)
+head(df)
+```
+#Dissimilarity matrix
+```{r}
+Distance_df <- dist(df, method = "euclidean")
+```
+
+#Hierarchical clustering using complete linkage
+```{r}
+hc1 <- hclust(Distance_df, method = "complete")
+```
+
+#Plotting the obtained dendrogram
+```{r}
+plot(hc1, cex = 0.4, hang = -3)
+```
+
+#Using agnes() function is pretty similar to using hclust() but with the agnes() function we will also be able to get the agglomerative coefficient.
+```{r}
+data <- df
+data
+```
+
+#Performing hcluster using three methods : single, complete and average
+```{r}
+hclust_single <- agnes( data, method = "single")
+hclust_complete <- agnes(data, method = "complete")
+hclust_average <- agnes(data, method = "average")
+hclust_ward <- agnes(data, method = "ward")
+```
+#Printing agglomerative coefficients
+```{r}
+print( hclust_single$ac)
+print( hclust_average$ac)
+print( hclust_complete$ac)
+print( hclust_ward)
+```
+#Single Linkage Method: Agglomerative coefficient = 0.7311616
+#Average Linkage Method: Agglomerative coefficient = 0.8792621
+#Complete Linkage Method: Agglomerative coefficient = 0.922957
+#Ward's Method: Agglomerative coefficient = 0.9597071
+#Agglomerative coefficient measures the cohesion within clusters. Higher values indicate better clustering structures, with clusters being more internally homogeneous.
+#From the above output the best value we got is 0.904. Plotting the agnes using ward method
+#and cutting the Dendrogram. we will take k =4 by noticing the distance.
+
+
+```{r}
+pltree(hclust_ward,cex = 0.7, hang = -2, main = "Dendrogram of agnes(ward)")
+rect.hclust(hclust_ward, k = 5,border = 1:4 )
+cluster_a <- cutree(hclust_ward, k= 5)
+dataframe_a <- as.data.frame(cbind(df_normalized, cluster_a))
+```
+#Task-B
+```{r}
+fviz_nbclust(df_2[, c(4:16)], hcut, method = "wss", k.max = 26) +
+  labs(title = "Optimal Number of Clusters - Elbow Method") +
+  geom_vline(xintercept = 12, linetype = 2)
+
+```
+
+```{r}
+fviz_nbclust(df_2[, c(4:16)], hcut, method = "silhouette", k.max = 26) +
+  labs(title = "Optimal Number of Clusters - Silhouette Method")
+
+```
+#Based on the agreement of the silhouette and elbow method, the appropriate number of clusters would be 3 in this case.
+#Below we will outline the 3 clusters on the hierarchical tree
+
+
+
+#Creating pratitions in the dataset
+```{r}
+set.seed(123)
+Partition_a <- df[1:50,]
+Partition_b <- df[51:78,]
+```
+
+#Scaling the partitioned above data
+```{r}
+PartitionA_scale <- scale(Partition_a)
+PartitionB_scale <- scale(Partition_b)
+```
+
+#Now, applying hcluster using agnes to the normalized partitioned datasets
+```{r}
+agnes_single <- agnes(PartitionA_scale, method = "single" )
+agnes_average <- agnes(PartitionA_scale, method = "average" )
+agnes_complete <- agnes(PartitionA_scale, method = "complete" )
+agnes_ward <- agnes(PartitionA_scale, method = "ward" )
+
+cbind( SINGLE = agnes_single, AVERAGE = agnes_average, COMPLETE = agnes_complete, WARD = agnes_ward)
+pltree(agnes_ward, cex = 0.7, hang = -1 , main = "Grahical representation of Dendrogram using method AGNES")
+rect.hclust(agnes_ward, k = 5, border = 1:4)
+
+cut_2 <- cutree(agnes_ward, k = 5)
+
+```
+
+```{r}
+#Calculating the centeroids
+
+result <- as.data.frame(cbind(Partition_a, cut_2))
+result[result$cut_2==1,]
+
+centroid_1 <- colMeans(result[result$cut_2==1,])
+result[result$cut_2==2,]
+
+centroid_2 <- colMeans(result[result$cut_2==2,])
+result[result$cut_2==3,]
+
+centroid_3 <- colMeans(result[result$cut_2==3,])
+result[result$cut_2==4,]
+
+centroid_4 <- colMeans(result[result$cut_2==4,])
+```
+
+
+```{r}
+centroids <- rbind(centroid_1, centroid_2, centroid_3, centroid_4)
+x2 <- as.data.frame(rbind(centroids[,-14], Partition_b))
+```
+
+```{r}
+# Calculating the Distance
+Distance_1 <- get_dist(x2)
+Matrix_1 <- as.matrix(Distance_1)
+
+dataframe1 <- data.frame(data = seq(1, nrow(Partition_b)), Clusters = rep(0, nrow(Partition_b)))
+
+for (i in 1:nrow(Partition_b)) {
+  # Check if there are non-empty elements in the subset
+  min_index <- which.min(Matrix_1[i + 4, 1:4])
+  if (length(min_index) > 0) {
+    dataframe1$Clusters[i] <- min_index
+  } else {
+    # If subset is empty, assign NA or any other appropriate value
+    dataframe1$Clusters[i] <- NA
+  }
+}
+
+dataframe1
+
+```
+
+
+```{r}
+cbind(dataframe_a$Cluster1[51:74], dataframe1$Clusters)
+table(dataframe_a$Cluster1[51:74] == dataframe1$Clusters)
+```
+#We can say that the model is partially stable as we are getting 12 FALSE and 12 TRUE 
+#3) The elementary public schools would like to choose a set of Cereals_Data to 
+#include in their daily cafeterias. Every day a different cereal is offered, 
+#but all Cereals_Data should support a healthy diet. For this goal, you are requested to find a cluster of “healthy #Cereals_Data.”
+
+```{r}
+#Clustering Healthy Cereals_Data.
+# Ensure both Healthy_Cereals_new and cluster_a have the same number of rows
+Healthy_Cereals <- df
+Healthy_Cereals_new <- na.omit(Healthy_Cereals)
+
+# Subset cluster_a to match the number of rows in Healthy_Cereals_new
+cluster_a <- cluster_a[1:nrow(Healthy_Cereals_new)]
+
+# Combine Healthy_Cereals_new and cluster_a
+HealthyClust <- cbind(Healthy_Cereals_new, cluster_a)
+
+# Check the subsets
+HealthyClust[HealthyClust$cluster_a == 1, ]
+HealthyClust[HealthyClust$cluster_a == 2, ]
+HealthyClust[HealthyClust$cluster_a == 3, ]
+HealthyClust[HealthyClust$cluster_a == 4, ]
+
+```
+
+```{r}
+#Mean ratings to determine the best cluster.
+mean(HealthyClust[HealthyClust$cluster_a==1,"rating"])
+mean(HealthyClust[HealthyClust$cluster_a==2,"rating"])
+mean(HealthyClust[HealthyClust$cluster_a==3,"rating"])
+mean(HealthyClust[HealthyClust$cluster_a==4,"rating"])
+```
+#Cluster 2 has the highest mean rating (60.11492), indicating that cereals in this cluster generally have higher ratings for healthiness or nutritional quality compared to cereals in other clusters.
+#Cluster 1 and Cluster 3 have moderate mean ratings (46.01532 and 37.30956, respectively).
+#Cluster 4 has the lowest mean rating (33.65472), suggesting that cereals in this cluster may have lower health ratings compared to cereals in other clusters.
+#Overall, the analysis suggests that cereals can be grouped into clusters based on their nutritional characteristics, with some clusters having higher mean ratings for healthiness than others. This information can be valuable for consumers, nutritionists, and food manufacturers to understand the nutritional profiles of different cereal products.
