@@ -1,0 +1,389 @@
+---
+title: "PROJECTClusteringofbikes"
+author: "Abhinav and Keerthana"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("ggstatsplot")
+#install.packages("psych")
+#install.packages("plotrix")
+```
+
+```{r}
+library(caret)
+library(plotrix)
+library(psych)
+library(dplyr)
+library(ggstatsplot)
+library(cluster)
+library(factoextra)
+library(FactoMineR)
+
+```
+
+```{r}
+df <- read.csv("Bikes_dataset.csv")
+str(df)
+summary(df)
+View(df)
+```
+
+#Counting the missing values
+```{r}
+df <- na.omit(df)
+missing_values <- colSums(is.na(df))
+missing_values
+```
+
+```{r}
+# Create a pie chart
+# Create a factor from the 'Engine.cylinder' column
+freq_table <- factor(df$Engine.cylinder)
+
+# Create a pie chart with base R
+pie(table(df$Engine.cylinder), main = "Proportion of Categories", col = rainbow(10), cex = 1)
+
+
+# Create a 3D pie chart with 'pie3D' from the 'plotrix' package
+library(plotrix)
+pie3D(table(freq_table), labels = levels(freq_table), explode = 0.25, col = rainbow(10))
+
+# Calculate and paste the frequencies as percentages
+paste(prop.table(table(freq_table)) * 100, "%")
+
+```
+
+#Finding out outliers using boxplot
+```{r}
+data_df <- df[,4:9]
+
+# Create the boxplot
+boxplot(data_df , outline=TRUE, freq = 500, ylim= c(0,2000))
+
+summary(data_df)
+```
+The analysis identified outliers across multiple variables, particularly in power, torque, and wheelbase. The boxplots provided a visual representation of the outliers, while the statistical summary offered numerical insights into the central tendency and spread of each variable.Along with this, we have the statistical summary and data insights from the R console present next to it.
+
+The presence of outliers suggests that some motorcycles in the dataset possess unusually high or low specifications. These outliers could be further investigated or removed based on the study's objectives. The methodology used in this report demonstrates the value of combining boxplots and summary statistics for exploratory data analysis.
+
+
+```{r}
+#install.packages("fastDummies")
+library(fastDummies)
+```
+#Creating dummy variables for CATEGORICAL VARIABLES "Engine cylinder".
+```{r}
+Engine_cylinders_dummies <- dummy_cols(df, select_columns = c("Engine.cylinder"))
+head(Engine_cylinders_dummies)
+```
+#Creating dummy variables for CATEGORICAL VARIABLES "Brand".
+```{r}
+Brand_dummies <- dummy_cols(df, select_columns = c("Brand"))
+head(Brand_dummies)
+```
+#Creating dummy variables for CATEGORICAL VARIABLES "Category".
+```{r}
+Category_dummies <- dummy_cols(df, select_columns = c("Category"))
+head(Category_dummies)
+```
+
+```{r}
+# Combine the original dataset with the dummy variables
+transformed_data <- cbind(Engine_cylinders_dummies, Brand_dummies, Category_dummies)
+head(transformed_data)
+View(transformed_data)
+```
+```{r}
+# Select the columns you want to keep
+columns_to_keep <- c(0:15,24:28,38:42)
+
+X <- transformed_data[, columns_to_keep]
+head(X)
+```
+```{r}
+#Creating a dataframe which only has the numerical variales
+X_numeric <- X[c(4:25)]
+X_numeric
+```
+
+```{r}
+# Load the dataset features
+# Selecting specific columns for the pairs plot
+X1 <- X_numeric[, c(1:6)] #Numeric values
+X2 <- X_numeric[, c(7:11)] #Engine cylinder
+X3 <- X_numeric[, c(13:17)] #Brand
+X4 <- X_numeric[, c(18:22)] #Category
+
+# Create the pairs plots
+pairs(X1, pch = 19)
+pairs(X2, pch = 19)
+pairs(X3, pch = 19)
+pairs(X4, pch = 19)
+
+```
+The scatterplots in the lower triangle of the matrix highlight several key relationships among variables:
+
+1. **Displacement (ccm) vs. Power (hp):**
+   - A positive linear relationship is observed, indicating that as displacement increases, power also tends to increase.
+   
+2. **Displacement (ccm) vs. Torque (Nm):**
+   - A positive linear relationship suggests that larger displacements generally lead to higher torque.
+   
+3. **Displacement (ccm) vs. Wheelbase (mm):**
+   - The positive correlation indicates that larger displacements are associated with longer wheelbases.
+   
+4. **Wheelbase (mm) vs. Seat Height (mm):**
+   - The positive correlation reveals that motorcycles with longer wheelbases tend to have higher seats.
+```{r}
+#Pair matrix for the  before performing PCA and Corrplot
+library(psych)
+pairs.panels(X_numeric[, c(1:6)],
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+```
+**1. Scatterplots**  
+The scatterplots reveal the relationships between pairs of variables. For example, the plot between Displacement (ccm) and Gearbox indicates a weak positive linear relationship, suggesting that motorcycles with larger displacements tend to have more gears. In contrast, the plot between Displacement (ccm) and Cylinder_Single shows a negative linear relationship, implying that motorcycles with single-cylinder engines typically have smaller displacements. Additionally, the negative relationship between Displacement (ccm) and Category_Naked indicates that motorcycles in the "Naked" category tend to have smaller displacements, while the positive trend between Gearbox and Category_Custom suggests that custom motorcycles might have higher gear counts.
+
+**2. Correlation Coefficients**  
+The correlation coefficients in the matrix indicate the strength and direction of linear relationships. For instance, the correlation coefficient between Displacement (ccm) and Gearbox is -0.04, signifying a very weak negative linear relationship. The coefficient between Displacement (ccm) and Cylinder_Single is -0.46, indicating a moderate negative linear relationship, while the coefficient between Gearbox and Category_Custom is 0.23, suggesting a weak positive linear relationship.
+
+```{r}
+
+numeric_vars <- data.frame(X_numeric[, c(1:11, 13:22)])
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(numeric_vars, use = "pairwise.complete.obs")
+
+# Print the correlation matrix
+print(correlation_matrix)
+
+```
+
+```{r}
+# Visualize the correlation matrix as a heatmap
+library(ggplot2)
+library(reshape2)  # for melt function
+
+# Melt the correlation matrix for plotting
+correlation_melted <- melt(correlation_matrix)
+
+# Plot heatmap with modified x-axis labels orientation
+ggplot(data = correlation_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                       midpoint = 0, limits = c(-1, 1), 
+                       name = "Correlation") +
+  theme_minimal() +
+  labs(title = "Correlation Heatmap") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+From the heatmap, several key observations emerge:
+
+1. **Positive Correlations:** Displacement (ccm) and Power (hp) exhibit a strong positive correlation, indicating that larger engine displacement aligns with higher power output. Similarly, Wheelbase (mm) and Seat Height (mm) are positively correlated, while Category_Touring and Category_Custom.cruiser show overlap.
+
+2. **Negative Correlations:** Category_Naked.bike and Category_Touring have contrasting features, as do the Single and VShape engine cylinder types.
+
+3. **Key Features:** Displacement (ccm) and Power (hp) strongly correlate with key specifications, emphasizing their importance in the dataset. The Single-cylinder engine configuration negatively correlates with other engine types, while Category_Touring contrasts with other categories like Naked.bike and Sport.
+
+
+#PCA
+```{r}
+PCA_X <- X_numeric[, c(1:11, 13:22)]
+head(PCA_X[, 1:6], 100)
+```
+```{r}
+res.pca <- PCA(PCA_X, graph = FALSE)
+print(res.pca)
+```
+
+#PCA after feature selection
+
+From the above  provided loadings, it seems that "Seat.height..mm." has low loadings on all dimensions except Dim.4. Therefore, it may be a candidate for elimination if it is deemed less important for the analysis. However, the decision to eliminate a variable should also consider domain knowledge and the specific objectives of the analysis.
+
+
+`
+```{r}
+# Color by cos2 values: quality on the factor map
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE # Avoid text overlapping
+             )
+```
+
+
+
+```{r}
+#Selecting columns based upon the above features
+Xnew <- X[, c(4, 9, 13, 12, 23, 22)]
+Xnew
+```
+#double checking
+```{r}
+PCA_Xnew <- Xnew
+head(PCA_Xnew)
+
+res.pca_1 <- PCA(PCA_Xnew, graph = FALSE)
+fviz_pca_var(res.pca_1, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE # Avoid text overlapping
+             )
+
+```
+The PCA plot provided offers a comprehensive visualization of the relationships and significance of different features within a motorcycle dataset, utilizing the first two principal components. This graphical representation effectively demonstrates how various variables contribute to the overall variability captured by PCA.
+
+In the plot, the color gradient signifies the cos2 values, reflecting the contributions of individual variables. Variables with higher cos2 values are depicted more prominently, indicating their greater influence on the principal components presented.
+
+To offer a clearer view of the selected features identified through PCA analysis, the plot provides an enhanced and vivid depiction, highlighting their relative importance within the dataset.
+
+To enhance feature selection and understand the correlation strength among features, we create a “corrplot” and a “heatmap” . These include the features chosen from the enhanced PCA (shown above) and exclude the variable “Torque” to avoid multicollinearity.
+
+```{r}
+library(corrplot)
+# Compute the correlation matrix for the dataframe
+correlation_matrix <- cor(Xnew)
+
+# Create the correlation plot (corrplot)
+corrplot(correlation_matrix, method = "circle", type = "lower", tl.col = "black", tl.srt = 45)
+```
+The correlation matrix is a vital tool for data preparation, calculating correlations among selected numerical variables. It provides insights into linear relationships, aiding in feature selection, exploratory data analysis, and identifying multicollinearity. This step is essential for preparing data for statistical modeling and machine learning, helping analysts make informed decisions and improve the quality of their analyses.
+
+```{r}
+#pair matrix after feature selection
+pairs.panels(Xnew,
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+```
+
+
+```{r}
+# Load required libraries
+library(cluster) # For kmeans function
+library(corrplot) # For visualization
+```
+
+```{r}
+
+# Selecting columns excluding 'Torque'
+data_selected <- Xnew
+
+#Recompute correlation matrix after excluding 'Torque'
+correlation_matrix_selected <- cor(data_selected)
+
+#Selecting columns excluding 'Torque'
+scaled_data <- scale(data_selected)
+distance <- get_dist(data_selected)
+fviz_dist(distance)
+
+#Visualize updated correlation matrix
+corrplot(correlation_matrix_selected, method = "circle")
+
+#Perform k-means clustering on the remaining features
+k <- 3 # Number of clusters (you can adjust this as needed)
+kmeans_result <- kmeans(data_selected, centers = k)
+
+#Extract cluster centers
+cluster_centers <- kmeans_result$centers
+
+#Assign each feature to a cluster
+cluster_assignments <- kmeans_result$cluster
+
+# Example: Output cluster assignments
+print(cluster_assignments)
+```
+
+```{r}
+#Number of clusters
+fviz_nbclust(Xnew, kmeans, method = "wss")
+fviz_nbclust(Xnew, kmeans, method = "silhouette")
+
+# Perform clustering (e.g., k-means) using the binary variable
+kmeans_clusters <- kmeans(Xnew, centers = 7, nstart=10)
+kmeans_clusters$centers
+
+```
+**Elbow method**
+The plot shows the "Total Within Sum of Squares" (WSS) on the y-axis, which measures the variance within each cluster, and the number of clusters (𝑘) on the x-axis. The WSS decreases as the number of clusters increases, and the optimal number of clusters is typically found at the "elbow" point, where the rate of decrease slows down significantly. In this plot, the elbow appears to be around 𝑘=3 or 𝑘=4.
+
+**Silhouette method**
+The y-axis of the plot shows the "Average Silhouette Width," which measures how similar each point is to its own cluster compared to other clusters, while the x-axis shows the number of clusters (𝑘). The plot illustrates how the silhouette width changes as the number of clusters increases, with the optimal number typically found at the peak silhouette width, indicating the best cluster configuration. In this case, the optimal number of clusters appears to be around 𝑘=2 or 𝑘=3. With feature selection and the optimal number of clusters concluded, the next step is to implement the Machine Learning models K-Means and DBScan.
+```{r}
+library(fpc)
+library(factoextra)
+library(ggplot2)
+
+# Evaluate k-means clustering
+kmeans_clusters <- kmeans(Xnew, centers = 7, nstart = 10)
+
+# Evaluate DBSCAN clustering
+db <- fpc::dbscan(Xnew, eps = 0.15, MinPts = 5)
+
+# Compare the number of clusters
+cat("Number of clusters (K-means):", length(unique(kmeans_clusters$cluster)), "\n")
+cat("Number of clusters (DBSCAN):", length(unique(db$cluster)), "\n")
+
+# Calculate silhouette scores for k-means
+silhouette_kmeans <- silhouette(kmeans_clusters$cluster, dist(Xnew))
+avg_silhouette_kmeans <- mean(silhouette_kmeans[, "sil_width"])
+
+# Calculate silhouette scores for DBSCAN
+silhouette_dbscan <- silhouette(db$cluster, dist(Xnew))
+avg_silhouette_dbscan <- mean(silhouette_dbscan[, "sil_width"])
+
+# Compare average silhouette widths
+cat("Average Silhouette Width (K-means):", avg_silhouette_kmeans, "\n")
+cat("Average Silhouette Width (DBSCAN):", avg_silhouette_dbscan, "\n")
+
+# Visualize clusters for k-means
+fviz_cluster(kmeans_clusters, data = Xnew)
+
+# Visualize clusters for DBSCAN
+fviz_cluster(db, data = Xnew, stand = FALSE,
+             ellipse = FALSE, show.clust.cent = FALSE,
+             geom = "point", palette = "jco", ggtheme = theme_classic())
+
+
+```
+**k-means**
+The provided scatterplot illustrates the outcomes of k-means clustering on a dataset, with the x-axis representing PC1 and the y-axis representing PC2, two principal components derived from the data. Each dot represents a data point, color-coded by its assigned cluster, while larger dots or stars indicate the centroids of each cluster. This visualization effectively showcases the grouping of data points into distinct clusters, emphasizing their distribution and separation. The centroids provide insight into the average characteristics of each cluster, aiding in understanding their similarities or differences. By using principal components, the plot captures the most significant variance in the data, offering a clear depiction of its structure and variability.
+*DBScan**
+The plot shows the first and second principal components of the data, with the x-axis (Dim1) representing 100% of the variance and the y-axis (Dim2) representing 0%. The plot displays several clusters, labeled from 0 to 18, where "0" represents noise points that do not fit into any cluster. The clusters are aligned in a linear pattern, suggesting a linear relationship among the data points. The presence of significant noise indicates that many points were not close to any cluster center or were in sparsely populated areas. The DBSCAN algorithm effectively grouped the data into distinct clusters, excluding noise points, and the data appears to have a linear pattern with distinct groups.
+
+```{r}
+
+
+# Compare the number of clusters
+cat("Number of clusters (K-means):", length(unique(kmeans_clusters$cluster)), "\n")
+cat("Number of clusters (DBSCAN):", length(unique(db$cluster)), "\n")
+
+# Calculate silhouette scores for k-means
+silhouette_kmeans <- silhouette(kmeans_clusters$cluster, dist(Xnew))
+avg_silhouette_kmeans <- mean(silhouette_kmeans[, "sil_width"]) # corrected here
+
+# Calculate silhouette scores for DBSCAN
+silhouette_dbscan <- silhouette(db$cluster, dist(Xnew))
+avg_silhouette_dbscan <- mean(silhouette_dbscan[, "sil_width"]) # corrected here
+
+# Compare average silhouette widths
+cat("Average Silhouette Width (K-means):", avg_silhouette_kmeans, "\n")
+cat("Average Silhouette Width (DBSCAN):", avg_silhouette_dbscan, "\n")
+
+
+
+```
+
+This code snippet compares the performances of k-means clustering and DBSCAN by evaluating the number of clusters, calculating the average silhouette widths, and visualizing the clusters generated by both methods.The K-means clustering algorithm identified 7 clusters with an average silhouette width of 0.746, indicating a strong clustering structure. In contrast, the DBSCAN algorithm identified 90 clusters with a significantly lower average silhouette width of 0.437, suggesting a weaker clustering structure.
